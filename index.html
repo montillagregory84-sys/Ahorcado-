@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahorcado Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root { --neon: #00ff41; --bg: #0d0d0d; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        #stats { position: absolute; top: 10px; width: 100%; text-align: center; font-size: 0.9rem; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        pre { font-size: 1.2rem; line-height: 1.2; margin: 20px 0; font-weight: bold; text-shadow: 0 0 5px var(--neon); }
+        #palabra { font-size: 2.5rem; letter-spacing: 8px; margin: 20px; text-transform: uppercase; }
+        #mensaje { font-style: italic; min-height: 1.5em; color: #fff; }
+        input { background: transparent; border: 2px solid var(--neon); color: var(--neon); padding: 15px; text-align: center; font-size: 1.5rem; width: 50px; border-radius: 8px; outline: none; margin-top: 10px; }
+        .fallidas { color: #ff3e3e; margin-top: 15px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <div id="stats">
+        Nivel: <span id="lvl">1</span> | Racha: <span id="racha">0</span> | Récord: <span id="record">0</span>
+    </div>
+
+    <pre id="dibujo"></pre>
+    <div id="palabra"></div>
+    <div id="mensaje">¡Cargando juego!</div>
+    <div class="fallidas">Fallos: <span id="letrasFallidas"></span></div>
+    
+    <input type="text" id="inputLetra" maxlength="1" autofocus autocomplete="off">
+
+    <script>
+        // Lógica adaptada para el DOM
+        const Juego = {
+            nivel: 1, racha: 0, record: 0, vidas: 6, palabra: "", 
+            adivinadas: [], fallidas: [],
+            dict: {
+                facil: ["CASA", "SOL", "LUNA", "MAR", "TREN"],
+                medio: ["PLANETA", "ESTRELLA", "COHETE", "BRUJULA"],
+                dificil: ["ENTROPIA", "ALGORITMO", "EFIMERO", "SINTAXIS"],
+                leyenda: ["PARADIGMA", "OXIMORON", "YUXTAPOSICION"]
+            },
+            fases: [
+                `  +---+ \n  |   | \n  O   | \n /|\\  | \n / \\  | \n      | \n=========`,
+                `  +---+ \n  |   | \n  O   | \n /|\\  | \n /    | \n      | \n=========`,
+                `  +---+ \n  |   | \n  O   | \n /|\\  | \n      | \n      | \n=========`,
+                `  +---+ \n  |   | \n  O   | \n /|   | \n      | \n      | \n=========`,
+                `  +---+ \n  |   | \n  O   | \n  |   | \n      | \n      | \n=========`,
+                `  +---+ \n  |   | \n  O   | \n      | \n      | \n      | \n=========`,
+                `  +---+ \n  |   | \n      | \n      | \n      | \n      | \n=========`,
+            ],
+            init() {
+                this.seleccionar();
+                this.update();
+                document.getElementById('inputLetra').addEventListener('input', (e) => {
+                    if(e.target.value) { this.intentar(e.target.value); e.target.value = ''; }
+                });
+            },
+            seleccionar() {
+                let p = this.nivel <= 5 ? this.dict.facil : this.nivel <= 15 ? this.dict.medio : this.nivel <= 30 ? this.dict.dificil : this.dict.leyenda;
+                this.palabra = p[Math.floor(Math.random()*p.length)];
+            },
+            update(msg = "Introduce una letra...") {
+                document.getElementById('lvl').innerText = this.nivel;
+                document.getElementById('racha').innerText = this.racha;
+                document.getElementById('record').innerText = this.record;
+                document.getElementById('dibujo').innerText = this.fases[this.vidas];
+                document.getElementById('mensaje').innerText = msg;
+                document.getElementById('letrasFallidas').innerText = this.fallidas.join(", ");
+                document.getElementById('palabra').innerText = this.palabra.split('').map(l => this.adivinadas.includes(l) ? l : "_").join(" ");
+            },
+            intentar(l) {
+                l = l.toUpperCase();
+                if(this.adivinadas.includes(l) || this.fallidas.includes(l)) return;
+                if(this.palabra.includes(l)) {
+                    this.adivinadas.push(l);
+                    if(this.palabra.split('').every(char => this.adivinadas.includes(char))) {
+                        this.nivel++; this.racha++; 
+                        if(this.racha > this.record) this.record = this.racha;
+                        this.reset("¡Nivel superado!");
+                    } else { this.update("¡Bien hecho!"); }
+                } else {
+                    this.vidas--;
+                    this.fallidas.push(l);
+                    if(this.vidas <= 0) {
+                        this.racha = 0; this.nivel = 1;
+                        this.reset(`Perdiste. Era: ${this.palabra}`);
+                    } else { this.update("¡Oops! Intenta otra."); }
+                }
+            },
+            reset(msg) {
+                this.vidas = 6; this.adivinadas = []; this.fallidas = [];
+                this.seleccionar(); this.update(msg);
+            }
+        };
+        Juego.init();
+
+        // Registro del Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js');
+            });
+        }
+    </script>
+</body>
+</html>
